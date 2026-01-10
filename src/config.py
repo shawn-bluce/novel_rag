@@ -7,11 +7,9 @@ from loguru import logger
 class Settings(BaseSettings):
     APP_NAME: str = "Novel RAG"
     DEBUG: bool = True
-
-    API_KEY: str = ""
-    EMBEDDING_MODEL: str = "embedding-3"
-    LLM_MODEL: str = "glm-4.5-flash"
     IS_GLOBAL: bool = False
+
+    LLM_API_KEY: str = ""
 
     model_config = SettingsConfigDict(
         env_file="../.env",
@@ -21,18 +19,17 @@ class Settings(BaseSettings):
     )
 
 
-def validate_settings() -> None:
-    if not settings.API_KEY:
-        logger.error("API_KEY is not set in the environment variables.")
-        raise ValueError("API_KEY must be set.")
-    logger.info(f"Using embedding model: {settings.EMBEDDING_MODEL}")
-    logger.info(f"Using LLM model: {settings.LLM_MODEL}")
+def validate_settings() -> bool:
+    logger.info(f"Debug mode is {'on' if settings.DEBUG else 'off'}.")
     if settings.IS_GLOBAL:
         logger.info("Running in global mode.")
     else:
         logger.info("Running in China mode.")
-    logger.info(f"Debug mode is {'on' if settings.DEBUG else 'off'}.")
 
+    if not settings.LLM_API_KEY:
+        logger.error("LLM_API_KEY is not set. Please set it in the environment variables or .env file.")
+        return False
+    return True
 
 settings = Settings()
 validate_settings()
