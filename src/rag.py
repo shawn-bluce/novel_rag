@@ -115,11 +115,11 @@ class RAGService:
         self.embedding_model_name = 'embedding-3'
         self.llm = ZhipuAI(model=self.llm_name, api_key=config_settings.API_KEY)
         self.embedding_model = ZhipuAIEmbedding(model=self.embedding_model_name, api_key=config_settings.API_KEY)
-        self.chunk_size = 512       # document chunk size
-        self.chunk_overlap = 32     # document chunk overlap
-        self.vector_top_k = 5       # count of vector retriever top k
-        self.bm25_top_k = 5         # count of bm25 retriever top k
-        self.similarity_top_k = 10  # count of merged retriever top k
+        self.chunk_size = 1024       # document chunk size
+        self.chunk_overlap = 256     # document chunk overlap
+        self.vector_top_k = 10       # count of vector retriever top k
+        self.bm25_top_k = 10         # count of bm25 retriever top k
+        self.similarity_top_k = 15   # count of merged retriever top k
         self.retriever_weights = [0.5, 0.5]  # Dense : Sparse
         self.separator = '\n'       # document chunk separator
 
