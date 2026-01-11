@@ -7,11 +7,20 @@ from pydantic import BaseModel
 from loguru import logger
 from fastapi import FastAPI, Query, Header, Request
 from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from rag import get_rag_service
 from lifespan import lifespan
 from config import settings as config_settings
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class ChatRequest(BaseModel):
