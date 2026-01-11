@@ -122,4 +122,4 @@ temp/
 *.backup
 
 # Claude
-.claude
+.claude/
