@@ -4,8 +4,8 @@ from loguru import logger
 
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings, StorageContext, load_index_from_storage
 from llama_index.llms.zhipuai import ZhipuAI
+from llama_index.embeddings.zhipuai import ZhipuAIEmbedding
 from llama_index.retrievers.bm25 import BM25Retriever
-from llama_index.embeddings.ollama import OllamaEmbedding
 from llama_index.core.retrievers import QueryFusionRetriever
 from llama_index.core.retrievers.fusion_retriever import FUSION_MODES
 from llama_index.core.query_engine import RetrieverQueryEngine
@@ -33,8 +33,8 @@ class RAGService:
 
         self.original_path = '../original_document'
         self.persist_path = '../storage_index'
-        self.llm = ZhipuAI(model='glm-4-flash', api_key=config_settings.LLM_API_KEY)
-        self.embedding_model = 'qwen3-embedding:0.6b'
+        self.llm = ZhipuAI(model='glm-4-flash', api_key=config_settings.API_KEY)
+        self.embedding_model = ZhipuAIEmbedding(model='embedding-3', api_key=config_settings.API_KEY)
         self.chunk_size = 512
         self.chunk_overlap = 32
         self.vector_top_k = 5
@@ -49,7 +49,7 @@ class RAGService:
 
     def embedding(self):
         if not os.path.exists(self.persist_path):
-            Settings.embed_model = OllamaEmbedding(model_name=self.embedding_model)
+            Settings.embed_model = self.embedding_model
             logger.info("Local index not found. Creating new index...")
             documents = SimpleDirectoryReader(self.original_path).load_data()
             logger.info(f"Loaded {len(documents)} documents from {self.original_path}")
@@ -67,7 +67,7 @@ class RAGService:
         else:
             logger.info("Loading index from local storage...")
             start_time = time.time()
-            Settings.embed_model = OllamaEmbedding(model_name=self.embedding_model)
+            Settings.embed_model = self.embedding_model
             storage_context = StorageContext.from_defaults(persist_dir=self.persist_path)
             self.index = load_index_from_storage(storage_context)
             end_time = time.time()

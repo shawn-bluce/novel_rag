@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     IS_GLOBAL: bool = False
 
-    LLM_API_KEY: str = ""
+    API_KEY: str = ""
 
     model_config = SettingsConfigDict(
         env_file="../.env",
@@ -26,8 +26,8 @@ def validate_settings() -> bool:
     else:
         logger.info("Running in China mode.")
 
-    if not settings.LLM_API_KEY:
-        logger.error("LLM_API_KEY is not set. Please set it in the environment variables or .env file.")
+    if not settings.API_KEY:
+        logger.error("API_KEY is not set. Please set it in the environment variables or .env file.")
         return False
     return True
 
