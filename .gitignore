@@ -120,3 +120,6 @@ temp/
 *.tmp
 *.bak
 *.backup
+
+# Claude
+.claude
