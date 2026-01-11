@@ -18,6 +18,11 @@ class ChatRequest(BaseModel):
     chat_id: str = ""
     question: str = ""
 
+
+@app.get("/")
+async def say_hello():
+    return {"message": f"Welcome to {config_settings.APP_NAME}!"}
+
 @app.post("/chat")
 async def chat(
         request: ChatRequest,
