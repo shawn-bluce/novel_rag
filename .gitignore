@@ -124,3 +124,6 @@ temp/
 # Claude
 .claude/
 .claude/*
+
+storage_index
+storage_index/*
