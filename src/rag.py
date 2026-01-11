@@ -33,7 +33,7 @@ class RAGService:
 
         self.original_path = '../original_document'
         self.persist_path = '../storage_index'
-        self.llm = ZhipuAI(model='glm-4.5-flash', api_key=config_settings.LLM_API_KEY)
+        self.llm = ZhipuAI(model='glm-4-flash', api_key=config_settings.LLM_API_KEY)
         self.embedding_model = 'qwen3-embedding:0.6b'
         self.chunk_size = 512
         self.chunk_overlap = 32
@@ -59,9 +59,15 @@ class RAGService:
             self.index = VectorStoreIndex.from_documents(documents)
             end_time = time.time()
             logger.success(f"Index created in {end_time - start_time:.2f} seconds.")
+            logger.info("Persisting index to local storage...")
+            start_time = time.time()
+            self.index.storage_context.persist(persist_dir=self.persist_path)
+            end_time = time.time()
+            logger.success(f"Index persisted in {end_time - start_time:.2f} seconds.")
         else:
             logger.info("Loading index from local storage...")
             start_time = time.time()
+            Settings.embed_model = OllamaEmbedding(model_name=self.embedding_model)
             storage_context = StorageContext.from_defaults(persist_dir=self.persist_path)
             self.index = load_index_from_storage(storage_context)
             end_time = time.time()
@@ -85,6 +91,7 @@ class RAGService:
             similarity_top_k=self.similarity_top_k,
             num_queries=1,  # 不进行查询扩展（1=原查询）
             retriever_weights=self.retriever_weights,  # Dense 和 Sparse 各占 50% 权重
+            llm=self.llm,  # 显式指定使用智谱 GLM 模型
         )
 
         self.query_engine = RetrieverQueryEngine.from_args(
