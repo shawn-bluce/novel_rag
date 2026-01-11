@@ -1,39 +1,46 @@
 import asyncio
+from uuid import uuid4
 import json
+from typing import Optional
+from pydantic import BaseModel
 
 from loguru import logger
-from fastapi import FastAPI, Query
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, Query, Header, Request
+from fastapi.responses import StreamingResponse, JSONResponse
 from rag import get_rag_service
 from lifespan import lifespan
+from config import settings as config_settings
 
 app = FastAPI(lifespan=lifespan)
 
 
-async def generate_text():
-    words = ["hello", "world", " from", " FastAPI"]
-    for word in words:
-        await asyncio.sleep(0.5)
-        yield f"{word}\n\n"
+class ChatRequest(BaseModel):
+    chat_id: str = ""
+    question: str = ""
 
-
-@app.get("/")
-async def hello():
-    return StreamingResponse(
-        generate_text(),
-        media_type="text/event-stream"
-    )
-
-
-@app.get("/query")
-async def query(
-        question: str = Query(..., description="查询问题")
+@app.post("/chat")
+async def chat(
+        request: ChatRequest,
+        authorization: Optional[str] = Header(None)
 ):
+    logger.debug(f"Authorization (via Header): {authorization}")
+    if authorization != config_settings.PASSWORD:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    chat_data = {
+        "chat_id": request.chat_id if request.chat_id else str(uuid4()),
+        "message": {
+            "role": "user",
+            "content": request.question
+        }
+    }
+
     async def generate_response():
         try:
             rag_service = get_rag_service()
-            async for token in rag_service.query_stream(question):
+            async for token in rag_service.query_stream(request.question):
                 # SSE or plain text
+                logger.info(f"chat_id: {chat_data['chat_id']}, response token: {token}")
                 yield json.dumps({"data": f"{token}"}) + '\n\n'
         except Exception as e:
             logger.error(f"Query error: {e}")

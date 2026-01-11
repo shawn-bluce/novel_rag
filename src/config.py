@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Novel RAG"
     DEBUG: bool = True
     IS_GLOBAL: bool = False
+    PASSWORD: str = ""
 
     API_KEY: str = ""
 
@@ -25,6 +26,9 @@ def validate_settings() -> bool:
         logger.info("Running in global mode.")
     else:
         logger.info("Running in China mode.")
+
+    if not settings.PASSWORD:
+        logger.warning("PASSWORD is not set. Authentication will be disabled.")
 
     if not settings.API_KEY:
         logger.error("API_KEY is not set. Please set it in the environment variables or .env file.")
