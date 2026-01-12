@@ -697,19 +697,6 @@ wheels = [
 ]
 
 [[package]]
-name = "llama-index-embeddings-zhipuai"
-version = "0.3.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "llama-index-core" },
-    { name = "zhipuai" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/39/e7/443c519be95ecf26b0955c38502ee5bbc5d4c9e4b262f59d5c5c1757c59f/llama_index_embeddings_zhipuai-0.3.1.tar.gz", hash = "sha256:15fb0b86b9c1214ed1588cc42d4d713ec28a49390acdfe6371762e43676d774b", size = 4046, upload-time = "2025-09-08T20:24:58.31Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/73/86/c1da2e2ed2ba670d7619140afd90c2ebcdcbe99c917029eeb2fe08da4004/llama_index_embeddings_zhipuai-0.3.1-py3-none-any.whl", hash = "sha256:c4495c05ebc3802b25b01698f0568bfa9f9d2610e2f7a18e1aa95efa505e87df", size = 3770, upload-time = "2025-09-08T20:24:57.629Z" },
-]
-
-[[package]]
 name = "llama-index-indices-managed-llama-cloud"
 version = "0.9.4"
 source = { registry = "https://pypi.org/simple" }
@@ -747,19 +734,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/fa/71/fcede4077837a94ee35452507a21364643ddcb6db7dfbafb54ff235b381b/llama_index_llms_openai-0.6.12.tar.gz", hash = "sha256:9b8b1d7435983f974f7b45f79428361bfdb68c622541205392bf8f0fea179bae", size = 25681, upload-time = "2025-12-16T02:54:25.779Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fa/8b/67a373e5cbf44c1ccf4f46ac25be3bba249bf4b51f050a92c4e07cb7eb08/llama_index_llms_openai-0.6.12-py3-none-any.whl", hash = "sha256:1e9477a03fa87c73904ffb5b851ce9e776c24cb5ef9145394e27f2f926f14578", size = 26695, upload-time = "2025-12-16T02:54:24.648Z" },
-]
-
-[[package]]
-name = "llama-index-llms-zhipuai"
-version = "0.4.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "llama-index-core" },
-    { name = "zhipuai" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/8b/d4/8ea9620934ec574fecac851b22a4013730fbe483ddca5cbb6655322b122d/llama_index_llms_zhipuai-0.4.1.tar.gz", hash = "sha256:b62db06385557abca67e848e04d1329507c9c2f511023c19387bd34ff479a4e3", size = 6715, upload-time = "2025-09-08T20:43:46.61Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5a/69/9884252b16f26d351efacf0636580c98a25ab59a164eb78f27e084af1fec/llama_index_llms_zhipuai-0.4.1-py3-none-any.whl", hash = "sha256:593d22979d9dd1d274cd8da657864b99f17cfb9363e7a3d6f3a0328cb93eab4e", size = 6337, upload-time = "2025-09-08T20:43:45.88Z" },
 ]
 
 [[package]]
@@ -1039,26 +1013,30 @@ source = { virtual = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "llama-index" },
-    { name = "llama-index-embeddings-zhipuai" },
-    { name = "llama-index-llms-zhipuai" },
+    { name = "llama-index-embeddings-openai" },
+    { name = "llama-index-llms-openai" },
     { name = "llama-index-retrievers-bm25" },
     { name = "loguru" },
+    { name = "openai" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "uvicorn" },
+    { name = "zai-sdk" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.128.0" },
     { name = "llama-index", specifier = ">=0.14.12" },
-    { name = "llama-index-embeddings-zhipuai", specifier = ">=0.3.1" },
-    { name = "llama-index-llms-zhipuai", specifier = ">=0.4.1" },
+    { name = "llama-index-embeddings-openai", specifier = ">=0.5.0" },
+    { name = "llama-index-llms-openai", specifier = ">=0.6.12" },
     { name = "llama-index-retrievers-bm25", specifier = ">=0.6.5" },
     { name = "loguru", specifier = ">=0.7.3" },
+    { name = "openai", specifier = ">=1.60.0" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "uvicorn", specifier = ">=0.40.0" },
+    { name = "zai-sdk", specifier = ">=0.2.0" },
 ]
 
 [[package]]
@@ -1399,11 +1377,11 @@ wheels = [
 
 [[package]]
 name = "pyjwt"
-version = "2.8.0"
+version = "2.10.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/30/72/8259b2bccfe4673330cea843ab23f86858a419d8f1493f66d413a76c7e3b/PyJWT-2.8.0.tar.gz", hash = "sha256:57e28d156e3d5c10088e0c68abb90bfac3df82b40a71bd0daa20c65ccd5c23de", size = 78313, upload-time = "2023-07-18T20:02:22.594Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e7/46/bd74733ff231675599650d3e47f361794b22ef3e3770998dda30d3b63726/pyjwt-2.10.1.tar.gz", hash = "sha256:3cc5772eb20009233caf06e9d8a0577824723b44e6648ee0a2aedb6cf9381953", size = 87785, upload-time = "2024-11-28T03:43:29.933Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2b/4f/e04a8067c7c96c364cef7ef73906504e2f40d690811c021e1a1901473a19/PyJWT-2.8.0-py3-none-any.whl", hash = "sha256:59127c392cc44c2da5bb3192169a91f429924e17aff6534d70fdc02ab3e04320", size = 22591, upload-time = "2023-07-18T20:02:21.561Z" },
+    { url = "https://files.pythonhosted.org/packages/61/ad/689f02752eeec26aed679477e80e632ef1b682313be70793d798c1d5fc8f/PyJWT-2.10.1-py3-none-any.whl", hash = "sha256:dcdd193e30abefd5debf142f9adfcdd2b58004e644f25406ffaebd50bd98dacb", size = 22997, upload-time = "2024-11-28T03:43:27.893Z" },
 ]
 
 [[package]]
@@ -1971,8 +1949,8 @@ wheels = [
 ]
 
 [[package]]
-name = "zhipuai"
-version = "2.1.5.20250825"
+name = "zai-sdk"
+version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
@@ -1981,7 +1959,7 @@ dependencies = [
     { name = "pydantic-core" },
     { name = "pyjwt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9b/9b/972de785a9859bbb5ee6425e011f154001886207860acdedebd174b7f2c2/zhipuai-2.1.5.20250825.tar.gz", hash = "sha256:50fc3982565ee631bd640b1166a1d223de227958026a74a1dd0e26dbd58d729c", size = 69899, upload-time = "2025-08-25T10:58:52.796Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1c/7a/14ad9c91f644f2dc7435c4d6c1b6ef2c5a56c62bbaec453cf319bfd82370/zai_sdk-0.2.0.tar.gz", hash = "sha256:a7a4dbf387cd8facf158d775429ff00738f08ba9ea91b4ae5f7553c4c099d74d", size = 74403, upload-time = "2025-12-22T14:08:03.987Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/49/95/22fc274f670e4531da20cc607991c34e7f8f4de5baa589e454e77e2492fa/zhipuai-2.1.5.20250825-py3-none-any.whl", hash = "sha256:aaad19881e514a4682598f07503b82d60b8b9a91cd83f9bcda988b94853c830d", size = 119097, upload-time = "2025-08-25T10:58:51.518Z" },
+    { url = "https://files.pythonhosted.org/packages/84/cd/f102f02b36fd6e7f5abbdda47e215b182b11e48c365440c3af0b957401fd/zai_sdk-0.2.0-py3-none-any.whl", hash = "sha256:808e31f184f1ab2f58dae5cb3f45f3bad95960ac44f21963c648bac8fa11d4fd", size = 122214, upload-time = "2025-12-22T14:08:02.934Z" },
 ]

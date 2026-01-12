@@ -5,8 +5,11 @@ import threading
 from loguru import logger
 
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings, StorageContext, load_index_from_storage
-from llama_index.llms.zhipuai import ZhipuAI
-from llama_index.embeddings.zhipuai import ZhipuAIEmbedding
+from llama_index.core.node_parser import SentenceSplitter
+from llama_index.core.llms import CustomLLM, CompletionResponse, CompletionResponseGen, LLMMetadata
+from llama_index.core.embeddings import BaseEmbedding
+from llama_index.core.bridge.pydantic import Field
+from typing import List, Optional, Sequence
 from llama_index.retrievers.bm25 import BM25Retriever
 from llama_index.core.retrievers import QueryFusionRetriever
 from llama_index.core.retrievers.fusion_retriever import FUSION_MODES
@@ -14,6 +17,213 @@ from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core import PromptTemplate
 
 from config import settings as config_settings
+
+
+class ZhipuLLM(CustomLLM):
+    """使用 zai-sdk 的 LLM 类"""
+
+    context_window: int = Field(default=128000, description="Context window size")
+    num_output: int = Field(default=4096, description="Number of output tokens")
+    model_name: str = Field(default="glm-4.7", description="Model name")
+
+    # 显式声明为私有属性
+    _model: str = ""
+    _api_key: str = ""
+
+    def __init__(self, model: str = "glm-4.7", api_key: str = "", **kwargs):
+        super().__init__(model_name=model, **kwargs)
+        # 使用 object.__setattr__ 绕过 Pydantic 的字段管理
+        object.__setattr__(self, '_model', model)
+        object.__setattr__(self, '_api_key', api_key)
+        object.__setattr__(self, '_client', None)
+        # 导入 zai SDK
+        try:
+            from zai import ZhipuAiClient
+            object.__setattr__(self, '_client', ZhipuAiClient(api_key=api_key))
+        except ImportError:
+            raise ImportError("请安装 zai-sdk: pip install zai-sdk")
+
+    def _get_client(self):
+        """确保客户端存在，处理序列化后丢失的情况"""
+        if self._client is None:
+            try:
+                from zai import ZhipuAiClient
+                self._client = ZhipuAiClient(api_key=self._api_key)
+            except ImportError:
+                raise ImportError("请安装 zai-sdk: pip install zai-sdk")
+        return self._client
+
+    @property
+    def metadata(self) -> LLMMetadata:
+        return LLMMetadata(
+            context_window=self.context_window,
+            num_output=self.num_output,
+            model_name=self.model_name,
+        )
+
+    def chat(self, messages: Sequence[dict], **kwargs) -> CompletionResponse:
+        client = self._get_client()
+        # 转换消息格式
+        formatted_messages = []
+        for msg in messages:
+            if hasattr(msg, 'role'):
+                formatted_messages.append({
+                    "role": msg.role,
+                    "content": msg.content
+                })
+            else:
+                formatted_messages.append(msg)
+
+        # 过滤掉不支持的参数
+        supported_params = {
+            'temperature', 'top_p', 'max_tokens', 'stream', 'stop',
+            'presence_penalty', 'frequency_penalty', 'user', 'n'
+        }
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in supported_params}
+
+        response = client.chat.completions.create(
+            model=self._model,
+            messages=formatted_messages,
+            **filtered_kwargs
+        )
+        return CompletionResponse(text=response.choices[0].message.content)
+
+    def stream_chat(self, messages: Sequence[dict], **kwargs) -> CompletionResponseGen:
+        client = self._get_client()
+        # 转换消息格式
+        formatted_messages = []
+        for msg in messages:
+            if hasattr(msg, 'role'):
+                formatted_messages.append({
+                    "role": msg.role,
+                    "content": msg.content
+                })
+            else:
+                formatted_messages.append(msg)
+
+        # 过滤掉不支持的参数
+        supported_params = {
+            'temperature', 'top_p', 'max_tokens', 'stream', 'stop',
+            'presence_penalty', 'frequency_penalty', 'user', 'n'
+        }
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in supported_params}
+
+        response = client.chat.completions.create(
+            model=self._model,
+            messages=formatted_messages,
+            stream=True,
+            **filtered_kwargs
+        )
+
+        def gen():
+            for chunk in response:
+                logger.debug(f"Stream chunk: {chunk}")
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    # 检查 content 字段
+                    content = delta.content if hasattr(delta, 'content') else None
+                    # 检查 reasoning_content 字段（思维链）
+                    reasoning = delta.reasoning_content if hasattr(delta, 'reasoning_content') else None
+
+                    logger.debug(f"Delta: content={content}, reasoning={reasoning}")
+
+                    # 输出 reasoning_content（思考过程），用特殊标记包装
+                    if reasoning is not None:
+                        yield CompletionResponse(text=f"<thinking>{reasoning}</thinking>")
+                    # 输出 content（实际回答）
+                    elif content is not None:
+                        yield CompletionResponse(text=content)
+
+        return gen()
+
+    def complete(self, prompt: str, **kwargs) -> CompletionResponse:
+        messages = [{"role": "user", "content": prompt}]
+        return self.chat(messages, **kwargs)
+
+    def stream_complete(self, prompt: str, **kwargs) -> CompletionResponseGen:
+        messages = [{"role": "user", "content": prompt}]
+        return self.stream_chat(messages, **kwargs)
+
+
+class ZhipuEmbedding(BaseEmbedding):
+    """使用 zai-sdk 的 Embedding 类"""
+
+    # 显式声明为私有属性，避免 Pydantic 验证
+    _model: str = ""
+    _api_key: str = ""
+
+    def __init__(
+        self,
+        model: str = "embedding-3",
+        api_key: str = "",
+        api_base: str = "https://open.bigmodel.cn/api/paas/v4/",
+        **kwargs
+    ):
+        super().__init__(**kwargs)
+        # 使用 object.__setattr__ 绕过 Pydantic 的字段管理
+        object.__setattr__(self, '_model', model)
+        object.__setattr__(self, '_api_key', api_key)
+        object.__setattr__(self, '_api_base', api_base)
+        object.__setattr__(self, '_client', None)
+        # 导入 zai SDK 并创建客户端
+        try:
+            from zai import ZhipuAiClient
+            object.__setattr__(self, '_client', ZhipuAiClient(api_key=api_key))
+        except ImportError:
+            raise ImportError("请安装 zai-sdk: pip install zai-sdk")
+
+    def _get_client(self):
+        """确保客户端存在，处理序列化后丢失的情况"""
+        if self._client is None:
+            try:
+                from zai import ZhipuAiClient
+                self._client = ZhipuAiClient(api_key=self._api_key)
+            except ImportError:
+                raise ImportError("请安装 zai-sdk: pip install zai-sdk")
+        return self._client
+
+    @classmethod
+    def class_name(cls) -> str:
+        return "ZhipuEmbedding"
+
+    async def _aget_query_embedding(self, query: str) -> List[float]:
+        return self._get_query_embedding(query)
+
+    async def _aget_text_embedding(self, text: str) -> List[float]:
+        return self._get_text_embedding(text)
+
+    async def _aget_text_embeddings(self, texts: List[str]) -> List[List[float]]:
+        return self._get_text_embeddings(texts)
+
+    def _get_query_embedding(self, query: str) -> List[float]:
+        client = self._get_client()
+        response = client.embeddings.create(
+            model=self._model,
+            input=query,
+        )
+        return response.data[0].embedding
+
+    def _get_text_embedding(self, text: str) -> List[float]:
+        client = self._get_client()
+        response = client.embeddings.create(
+            model=self._model,
+            input=text,
+        )
+        return response.data[0].embedding
+
+    def _get_text_embeddings(self, texts: List[str]) -> List[List[float]]:
+        client = self._get_client()
+        response = client.embeddings.create(
+            model=self._model,
+            input=texts,
+        )
+        return [data.embedding for data in response.data]
+
+    def get_text_embedding(self, text: str) -> List[float]:
+        return self._get_text_embedding(text)
+
+    def get_text_embeddings(self, texts: List[str]) -> List[List[float]]:
+        return self._get_text_embeddings(texts)
 
 
 class RAGService:
@@ -111,10 +321,19 @@ class RAGService:
 
         self.original_path = '../original_document'
         self.persist_path = '../storage_index'
-        self.llm_name = 'glm-4-flash'
+        self.llm_name = 'glm-4.7'
         self.embedding_model_name = 'embedding-3'
-        self.llm = ZhipuAI(model=self.llm_name, api_key=config_settings.API_KEY)
-        self.embedding_model = ZhipuAIEmbedding(model=self.embedding_model_name, api_key=config_settings.API_KEY)
+
+        # 使用自定义的 ZhipuLLM
+        self.llm = ZhipuLLM(
+            model=self.llm_name,
+            api_key=config_settings.API_KEY,
+        )
+        # 使用自定义的 ZhipuEmbedding
+        self.embedding_model = ZhipuEmbedding(
+            model=self.embedding_model_name,
+            api_key=config_settings.API_KEY,
+        )
         self.chunk_size = 1024       # document chunk size
         self.chunk_overlap = 256     # document chunk overlap
         self.vector_top_k = 10       # count of vector retriever top k
@@ -129,6 +348,12 @@ class RAGService:
     def embedding(self):
         if not os.path.exists(self.persist_path):
             Settings.embed_model = self.embedding_model
+            # 设置文本分割器
+            Settings.text_splitter = SentenceSplitter(
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap,
+                separator=self.separator,
+            )
             logger.info("Local index not found. Creating new index...")
             documents = SimpleDirectoryReader(self.original_path).load_data()
             logger.info(f"Loaded {len(documents)} documents from {self.original_path}")
@@ -207,13 +432,34 @@ class RAGService:
             yield "Query engine not initialized."
             return
 
-        # 使用流式查询
+        # 使用异步流式查询
         streaming_response = await self.query_engine.aquery(question)
+        logger.debug(f"Streaming response type: {type(streaming_response)}")
+        logger.debug(f"Has async_response_gen: {hasattr(streaming_response, 'async_response_gen')}")
 
         # AsyncStreamingResponse 对象使用 async_response_gen() 方法
         if hasattr(streaming_response, 'async_response_gen'):
             async for token in streaming_response.async_response_gen():
-                yield token
+                logger.debug(f"Token type: {type(token)}, token: {token}")
+                logger.debug(f"Token dir: {dir(token)}")
+
+                # 提取 CompletionResponse 的 text 属性
+                if hasattr(token, 'text'):
+                    content = token.text
+                    logger.debug(f"Token.text = '{content}'")
+                elif isinstance(token, str):
+                    content = token
+                    logger.debug(f"Token is str: '{content}'")
+                else:
+                    content = str(token)
+                    logger.debug(f"Token str(): '{content}'")
+
+                # 只 yield 非空内容
+                if content:
+                    logger.debug(f"Yielding content: '{content}'")
+                    yield content
+                else:
+                    logger.debug("Skipping empty token")
         else:
             # 如果不是流式对象，直接返回结果（兼容旧版本）
             yield str(streaming_response)

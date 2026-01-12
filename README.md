@@ -34,15 +34,27 @@ docker compose up -d
 
 服务将在 `http://localhost:8000` 启动。
 
-## API 使用
+## 使用
 
-### 健康检查
+### Web 界面
+
+打开浏览器访问 `index.html` 文件，即可使用简单的对话界面。
+
+**使用步骤**：
+1. 在"访问密码"输入框中输入 `.env` 中配置的 `PASSWORD`
+2. 在"你的问题"输入框中输入问题
+3. 点击"发送问题"按钮或按 `Ctrl + Enter` 提交
+4. AI 回答将以打字机效果实时显示
+
+### API 使用
+
+#### 健康检查
 
 ```bash
 curl http://localhost:8000/
 ```
 
-### 对话接口
+#### 对话接口
 
 ```bash
 curl -X POST http://localhost:8000/chat \

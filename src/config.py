@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     PASSWORD: str = ""
 
     API_KEY: str = ""
+    API_BASE: str = "https://open.bigmodel.cn/api/paas/v4/"
 
     model_config = SettingsConfigDict(
         env_file="../.env",

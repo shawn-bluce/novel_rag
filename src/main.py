@@ -52,15 +52,88 @@ async def chat(
     async def generate_response():
         try:
             rag_service = get_rag_service()
-            async for token in rag_service.query_stream(request.question):
-                # SSE or plain text
-                logger.info(f"chat_id: {chat_data['chat_id']}, response token: {token}")
-                yield json.dumps({"data": f"{token}"}) + '\n\n'
+
+            # 首先使用 query_engine 获取文档引用（同步调用）
+            def get_documents():
+                response = rag_service.query_engine.query(request.question)
+                # 提取文档引用
+                sources = []
+                for i, node in enumerate(response.source_nodes):
+                    preview = node.node.get_content()[:200].replace("\n", " ")
+                    sources.append({
+                        "index": i + 1,
+                        "score": float(node.score),
+                        "content_preview": preview,
+                        "file_name": node.node.metadata.get('file_name', 'Unknown')
+                    })
+                return sources, response.source_nodes
+
+            loop = asyncio.get_event_loop()
+            sources, source_nodes = await loop.run_in_executor(None, get_documents)
+
+            # 发送文档引用信息
+            yield json.dumps({"type": "sources", "data": sources}) + '\n\n'
+
+            # 构建带上下文的提示词
+            context_str = "\n\n".join([n.node.get_content() for n in source_nodes])
+
+            # 在后台线程运行同步流式查询
+            import queue
+            token_queue = queue.Queue()
+
+            def stream_producer():
+                try:
+                    # 使用带上下文的流式查询
+                    prompt = rag_service.qa_prompt_template.partial_format(
+                        system_prompt=rag_service.system_prompt,
+                        context_str=context_str,
+                        query_str=request.question
+                    )
+
+                    streaming_response = rag_service.llm.stream_complete(str(prompt))
+                    for token in streaming_response:
+                        # 检查是否有 reasoning_content（思考过程）
+                        if hasattr(token, 'text'):
+                            text = token.text
+                        else:
+                            text = str(token)
+                        token_queue.put(("content", text))
+                    token_queue.put(None)  # Sentinel for end of stream
+                except Exception as e:
+                    token_queue.put(("error", f"Error: {str(e)}"))
+
+            # 启动后台线程
+            import threading
+            thread = threading.Thread(target=stream_producer)
+            thread.start()
+
+            # 从队列异步读取 token
+            while True:
+                try:
+                    token_type, token = await loop.run_in_executor(None, token_queue.get)
+                    if token is None:  # Sentinel
+                        break
+                    if token_type == "content":
+                        logger.info(f"chat_id: {chat_data['chat_id']}, response token: {token}")
+                        yield json.dumps({"type": "content", "data": token}) + '\n\n'
+                    else:
+                        yield json.dumps({"type": "error", "data": token}) + '\n\n'
+                except Exception as e:
+                    logger.error(f"Queue read error: {e}")
+                    break
+
+            thread.join()
+
         except Exception as e:
             logger.error(f"Query error: {e}")
-            yield f"\n[Error: {str(e)}]"
+            yield json.dumps({"type": "error", "data": str(e)}) + '\n\n'
 
     return StreamingResponse(
         generate_response(),
-        media_type="text/event-stream"
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive"
+        }
     )
